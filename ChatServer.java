@@ -20,7 +20,7 @@ class ClientInfo {
 	this.port = port;
 	this.state = state;
 	this.chatGroup = chatGroup;
-	bufferUser = ByteBuffer.allocate(16384);
+	bufferUser = ByteBuffer.allocate(20000);
     }
     
 }
@@ -164,34 +164,48 @@ public class ChatServer {
 
 	// lê buffer desde o início
 	bufferUser.rewind();
-	msg = decoder.decode(bufferUser).toString();	
+	msg = decoder.decode(bufferUser).toString();
+	
+	int i=0;
+	while (i < msg.length()) {
 
-	// ou seja, é uma mensagem
-	if (!isComand(msg, key, selector, sc)){
-
-	    String MSG;
-				
-	    // se o cliente ainda não tiver sido inicializado
-	    // ou estiver fora da sala ou for um comando
-	    if((user.state).equals("init") || (user.state).equals("outside")) {
-				    
-		MSG = "ERROR\n";
-		// notifica o cliente que a ação deu erro
-		send(MSG, key, selector);
-					
-	    } else {
-
-		bufferUser.clear();
-		MSG = "MESSAGE " + user.name + " " + msg;
-		// envia msg a todos os utilizadores
-		sendGroup(MSG, user.chatGroup, key, selector);
-				    
+	    String command = "";
+	    for (int j=i; j<msg.length(); j++) {
+		command += msg.charAt(j);
+		if (msg.charAt(j) == '\n') {
+		    i = j+1;
+		    break;
+		}
 	    }
+	    
+	    // ou seja, é uma mensagem
+	    if (!isComand(command, key, selector, sc)){
+
+		String MSG;
 				
-	} else { // recebeu um comando
+		// se o cliente ainda não tiver sido inicializado
+		// ou estiver fora da sala ou for um comando
+		if((user.state).equals("init") || (user.state).equals("outside")) {
+				    
+		    MSG = "ERROR\n";
+		    // notifica o cliente que a ação deu erro
+		    send(MSG, key, selector);
+					
+		} else {
+
+		    bufferUser.clear();
+		    MSG = "MESSAGE " + user.name + " " + command;
+		    // envia msg a todos os utilizadores
+		    sendGroup(MSG, user.chatGroup, key, selector);
+				    
+		}
 				
-	    System.out.println("Received a Command");
+	    } else { // recebeu um comando
 				
+		System.out.println("Received a Command");
+				
+	    }
+
 	}
 
 	bufferUser.clear(); // limpa o buffer para receber uma nova msg
@@ -201,7 +215,7 @@ public class ChatServer {
 
     // função que trata dos comandos
     public static boolean isComand(String message, SelectionKey key, Selector selector, SocketChannel sc) throws Exception {
-
+	System.out.println(message);
 	// vai buscar a informação do cliente que está conectada com a key dada como argumento
 	ClientInfo info = (ClientInfo)key.attachment();
 	
@@ -298,7 +312,7 @@ public class ChatServer {
         if(message.startsWith("/leave")){ // sair da sala
 	    
 	    String msg = "BYE\n";
-	    send(msg,key,selector);
+	    send(msg, key, selector);
 	    
 	    if((info.state).equals("inside")){ // se o cliente estiver dentro da sala
 
