@@ -1,4 +1,4 @@
-import java.io.*;
+ import java.io.*;
 import java.net.*;
 import java.nio.*;
 import java.nio.channels.*;
@@ -7,10 +7,26 @@ import java.util.*;
 import java.lang.*;
 import java.io.IOException;
 
+class ClientInfo {
+
+    int port;
+    String name;
+    String state;
+    String chatGroup;
+    ByteBuffer bufferUser;
+
+    public ClientInfo(String name,int port,String state,String chatGroup){
+	this.name = name;
+	this.port = port;
+	this.state = state;
+	this.chatGroup = chatGroup;
+	bufferUser = ByteBuffer.allocate(16384);
+    }
+    
+}
+
 public class ChatServer {
 
-    // buffer pré-alocado para os dados recebidos
-    static private final ByteBuffer buffer = ByteBuffer.allocate(16384);
     // lista que contém o nome dos clientes da sala de chat
     static List<String> list = new ArrayList<String>(); 
     // descodificador para texto que chegue -- assumir UTF-8
@@ -64,7 +80,7 @@ public class ChatServer {
 			sc.configureBlocking(false);
 			// inicialização dos dados do cliente
 			ClientInfo info = new ClientInfo("anonimous", s.getPort(), "init", "none");
-			// registá-la com o selector, para leitura e associar ao selector o cliente
+      			// registá-la com o selector, para leitura e associar ao selector o cliente
 			sc.register(selector, SelectionKey.OP_READ, info);
 
 		    } else if (key.isReadable()) {
@@ -75,59 +91,22 @@ public class ChatServer {
 
 			    // dados futuros numa conexão -- processá-los
 			    sc = (SocketChannel)key.channel();
-			    
-			    StringBuilder sb = new StringBuilder();
+			    int ok = processInput(sc, key, selector);
 
-			    // coloca o buffer na posição 0 para escrita
-			    buffer.clear();
-
-			    int read = 0;
-			    // enquanto não se atingir o fim do buffer (simbolizado por -1) na leitura
-			    while ((read = sc.read(buffer)) > 0) {
-
-				buffer.flip(); // preparar o buffer
-				byte[] bytes = new byte[buffer.limit()];
-				buffer.get(bytes);
-				sb.append(new String(bytes));
-				buffer.clear();
-
-			    }
-
-			    String msg;
-			    
-			    if(read < 0) { // se estivermos no fim da stream a conexão é fechada
-				msg = " left the chat.\n";
-				sc.close();
-			    } else { // caso contrário, a msg prossegue
-				msg = sb.toString();
-			    }
-
-			    // ou seja, é uma mensagem
-			    if (!isComand(msg, key, selector, sc)){
-
-				// vai buscar o objeto cliente associado à key atual
-				// isto é, vai buscar o comando enviado pelo cliente
-				ClientInfo inf = (ClientInfo)key.attachment();
+			    // se o input for diferente de um <ENTER>
+			    // a conexão está morta e portanto é removida do selector e fechada
+			    if (ok == -1) {
 				
-				// se o cliente ainda não tiver sido inicializado
-				// ou estiver fora da sala ou for um comando
-				if((inf.state).equals("init") || (inf.state).equals("outside")) {
-				    
-				    msg = "ERROR1\n";
-				    // notifica o cliente que a ação deu erro
-				    send(msg, key, selector);
-					
-				} else {
+				key.cancel();
 
-				    msg = "MESSAGE " + inf.name + " " + sb.toString();
-				    // envia msg a todos os utilizadores
-				    sendGroup(msg, inf.chatGroup, key, selector);
-				    
+				Socket s = null;
+				try {
+				    s = sc.socket();
+				    System.out.println("Closing connection to " + s);
+				    s.close();
+				} catch(IOException ie) {
+				    System.err.println("Error closing socket " + s + ": " + ie);
 				}
-				
-			    } else { // recebeu um comando
-				
-				System.out.println("Received a Command");
 				
 			    }
 
@@ -156,8 +135,72 @@ public class ChatServer {
 	}
     }
 
+    public static int processInput(SocketChannel sc, SelectionKey key, Selector selector) throws Exception {
+
+	// vai buscar a informação do cliente que está conectada com a key dada como argumento
+	ClientInfo user = (ClientInfo)key.attachment();
+	ByteBuffer bufferUser = user.bufferUser;
+
+	/*
+	  -> o buffer já está em modo de escrita inicialmente;
+	  -> escreve na última posição de escrita, ou seja, vai escrever a seguir ao que havia anteriormente;
+	 */
+	sc.read(bufferUser); // começa a escrever no buffer de imediato pois assume que já está em modo de escrita
+	bufferUser.flip(); // o buffer passa para o modo de leitura
+
+	// se não houver dados, fechar conexão | retorna código de erro
+	if (bufferUser.limit() == 0) return -1;
+	
+	// descodificar a mensagem do buffer
+	String msg = decoder.decode(bufferUser).toString();
+	// input só pode ser processado quando se fizer <ENTER>
+	if (msg.charAt(msg.length() - 1) != '\n') {
+	    // reescreve no buffer o que tinha lido anteriormente, ou seja, faz a bufferização dos pedaços de msg
+	    bufferUser.clear(); // reinicia a posição de escrita no buffer (leitura -> escrita)
+	    byte[] bytes = msg.getBytes(StandardCharsets.UTF_8); // codifica a msg
+	    bufferUser = bufferUser.put(bytes); // coloca a msg novamente no buffer
+	    return 0;
+	}
+
+	// lê buffer desde o início
+	bufferUser.rewind();
+	msg = decoder.decode(bufferUser).toString();	
+
+	// ou seja, é uma mensagem
+	if (!isComand(msg, key, selector, sc)){
+
+	    String MSG;
+				
+	    // se o cliente ainda não tiver sido inicializado
+	    // ou estiver fora da sala ou for um comando
+	    if((user.state).equals("init") || (user.state).equals("outside")) {
+				    
+		MSG = "ERROR\n";
+		// notifica o cliente que a ação deu erro
+		send(MSG, key, selector);
+					
+	    } else {
+
+		bufferUser.clear();
+		MSG = "MESSAGE " + user.name + " " + msg;
+		// envia msg a todos os utilizadores
+		sendGroup(MSG, user.chatGroup, key, selector);
+				    
+	    }
+				
+	} else { // recebeu um comando
+				
+	    System.out.println("Received a Command");
+				
+	}
+
+	bufferUser.clear(); // limpa o buffer para receber uma nova msg
+	return 1;
+			    
+    }
+
     // função que trata dos comandos
-    public static boolean isComand(String message, SelectionKey key, Selector selector, SocketChannel sc)throws Exception{
+    public static boolean isComand(String message, SelectionKey key, Selector selector, SocketChannel sc) throws Exception {
 
 	// vai buscar a informação do cliente que está conectada com a key dada como argumento
 	ClientInfo info = (ClientInfo)key.attachment();
@@ -165,7 +208,7 @@ public class ChatServer {
 	if(message.startsWith("/nick")){
 
 	    String name = message.substring(message.indexOf("k") + 2); // vai buscar o nome inserido
-	    name = name.substring(0, name.length() - 1);
+	    name = name.substring(0, name.length() - 1); // remove o new line a mais
 
 	    // se ainda não houver nenhum cliente com o nome escolhido
 	    if(!list.contains(name)){
@@ -301,7 +344,7 @@ public class ChatServer {
 
 	    String arg = message.substring(message.indexOf(" ") + 1); // argumentos do comando /priv
 	    String name = arg.substring(0, arg.indexOf(" "));
-	    String contMsg = arg.substring(arg.indexOf(" ") + 1, arg.length() - 2);
+	    String contMsg = arg.substring(arg.indexOf(" ") + 1, arg.length() - 1);
 	    String msg = "PRIVATE " + info.name + " " + contMsg + "\n";
 	    ByteBuffer msgBuf = ByteBuffer.wrap(msg.getBytes());
 		
@@ -331,7 +374,7 @@ public class ChatServer {
     }
 
     // função que dada uma msg envia-a para o cliente que tenha a key dada como argumento
-    public static void send(String message, SelectionKey key, Selector selector) throws Exception{
+    public static void send(String message, SelectionKey key, Selector selector) throws Exception {
        ByteBuffer msgBuf = ByteBuffer.wrap(message.getBytes());
        
 	for(SelectionKey k : selector.keys()) {
@@ -346,7 +389,7 @@ public class ChatServer {
     }
 
     // função que envia uma dada msg para todos os utilizadores do chatGroup
-    public static void sendGroup(String message, String chatGroup, SelectionKey key, Selector selector) throws Exception{
+    public static void sendGroup(String message, String chatGroup, SelectionKey key, Selector selector) throws Exception {
 	ByteBuffer msgBuf = ByteBuffer.wrap(message.getBytes());
 	
 	for(SelectionKey k : selector.keys()) {
