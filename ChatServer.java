@@ -15,7 +15,7 @@ class ClientInfo {
     String chatGroup;
     ByteBuffer bufferUser;
 
-    public ClientInfo(String name,int port,String state,String chatGroup){
+    public ClientInfo(String name, int port, String state, String chatGroup){
 	this.name = name;
 	this.port = port;
 	this.state = state;
@@ -33,7 +33,6 @@ public class ChatServer {
     static private final Charset charset = Charset.forName("UTF8");
     static private final CharsetDecoder decoder = charset.newDecoder();
     
-
     static public void main(String args[]) throws Exception {
 	// analisar porta introduzida na linha de comando
 	int port = Integer.parseInt(args[0]);
@@ -215,7 +214,6 @@ public class ChatServer {
 
     // função que trata dos comandos
     public static boolean isComand(String message, SelectionKey key, Selector selector, SocketChannel sc) throws Exception {
-	System.out.println(message);
 	// vai buscar a informação do cliente que está conectada com a key dada como argumento
 	ClientInfo info = (ClientInfo)key.attachment();
 	
@@ -240,7 +238,7 @@ public class ChatServer {
 			
 			String antigo = info.name;
 			info.name = name;
-			String msg1 = "NEWNICK " + antigo + " " + name;
+			String msg1 = "NEWNICK " + antigo + " " + name + "\n";
 			String chatGroup = info.chatGroup;
 			// envia um alerta a todos os outros utilizadores de que o cliente mudou de nome
 			sendGroup(msg1, chatGroup, key, selector);
