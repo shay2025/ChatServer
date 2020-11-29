@@ -1,4 +1,5 @@
 import java.io.*;
+import java.nio.*;
 import java.net.*;
 import java.util.*;
 import java.awt.*;
@@ -16,7 +17,12 @@ public class ChatClient {
 
     // Se for necessário adicionar variáveis ao objecto ChatClient, devem
     // ser colocadas aqui
-
+    static Socket s;
+    static InputStream serverIn;
+    static OutputStream serverOut;
+    static String server;
+    static int port;
+    static BufferedReader bufferedIn;
 
 
     
@@ -31,7 +37,7 @@ public class ChatClient {
     public ChatClient(String server, int port) throws IOException {
 
         // Inicialização da interface gráfica --- * NÃO MODIFICAR *
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+	frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         JPanel panel = new JPanel();
         panel.setLayout(new BorderLayout());
         panel.add(chatBox);
@@ -57,12 +63,13 @@ public class ChatClient {
             public void windowOpened(WindowEvent e) {
                 chatBox.requestFocus();
             }
-        });
+	    });
         // --- Fim da inicialização da interface gráfica
 
         // Se for necessário adicionar código de inicialização ao
         // construtor, deve ser colocado aqui
-
+	this.server = server;
+	this.port = port;
 
 
     }
@@ -72,20 +79,67 @@ public class ChatClient {
     // na caixa de entrada
     public void newMessage(String message) throws IOException {
         // PREENCHER AQUI com código que envia a mensagem ao servidor
-
-
-
+	//System.out.println(message);
+	serverOut.write(message.getBytes());
+	//String response = bufferedIn.readLine();
+	//System.out.println(response);
+	
     }
 
     
     // Método principal do objecto
     public void run() throws IOException {
         // PREENCHER AQUI
-
-
-
+	
+	try{
+	    s = new Socket(server,port); // vriacao da socket para conectar com o servidor
+	    this.serverIn = s.getInputStream();
+	    this.serverOut = s.getOutputStream();
+	    this.bufferedIn = new BufferedReader(new InputStreamReader(serverIn));
+	    String teste = "/nick OLA\n";
+	    newMessage(teste);
+	    teste = "/join SALA\n";
+	    newMessage(teste);
+	    teste = "OLA\n";
+	    newMessage(teste);
+	    startMessageReader();
+	    
+	   
+	}catch (IOException e) {
+	    System.err.println(e);
+	}
     }
-    
+
+    public void startMessageReader() throws IOException {
+	Thread t = new Thread() {
+		@Override
+		public void run() {
+		     readServerMessage();
+		}
+	    };
+	t.start();
+    }
+
+     private void readServerMessage() {
+        try {
+            String response;
+	    System.out.println("1");
+            response = bufferedIn.readLine();
+	    System.out.println(response);
+	    printMessage(response);
+	}
+	catch (Exception ex) {
+            ex.printStackTrace();
+            try {
+                s.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+	}
+     }
+
+
+
 
     // Instancia o ChatClient e arranca-o invocando o seu método run()
     // * NÃO MODIFICAR *
