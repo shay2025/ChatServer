@@ -6,7 +6,6 @@ import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
 
-
 public class ChatClient {
 
     // Variáveis relacionadas com a interface gráfica --- * NÃO MODIFICAR *
@@ -17,14 +16,11 @@ public class ChatClient {
 
     // Se for necessário adicionar variáveis ao objecto ChatClient, devem
     // ser colocadas aqui
-    static Socket s;
-    static InputStream serverIn;
-    static OutputStream serverOut;
-    static String server;
-    static int port;
-    static BufferedReader bufferedIn;
-
-
+    Socket clientSocket;
+    DataOutputStream outToServer;
+    String server;
+    int port;
+    BufferedReader inFromServer;
     
     // Método a usar para acrescentar uma string à caixa de texto
     // * NÃO MODIFICAR *
@@ -70,7 +66,10 @@ public class ChatClient {
         // construtor, deve ser colocado aqui
 	this.server = server;
 	this.port = port;
-
+	// cria socket do cliente e estabelece conexão com servidor
+	this.clientSocket = new Socket(server, port);
+	// cria stream de saida associada à socket
+	this.outToServer = new DataOutputStream(clientSocket.getOutputStream());
 
     }
 
@@ -78,67 +77,81 @@ public class ChatClient {
     // Método invocado sempre que o utilizador insere uma mensagem
     // na caixa de entrada
     public void newMessage(String message) throws IOException {
-        // PREENCHER AQUI com código que envia a mensagem ao servidor
-	//System.out.println(message);
-	serverOut.write(message.getBytes());
-	//String response = bufferedIn.readLine();
-	//System.out.println(response);
-	
+	// envia linha (pedido) ao servidor
+	// '\n' é o terminador de mensagem
+	outToServer.writeBytes(message + '\n');
     }
 
     
     // Método principal do objecto
     public void run() throws IOException {
-        // PREENCHER AQUI
+
+	try {
+
+	    // cria stream de entrada associada à socket
+	    inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 	
-	try{
-	    s = new Socket(server,port); // vriacao da socket para conectar com o servidor
-	    this.serverIn = s.getInputStream();
-	    this.serverOut = s.getOutputStream();
-	    this.bufferedIn = new BufferedReader(new InputStreamReader(serverIn));
-	    String teste = "/nick OLA\n";
-	    newMessage(teste);
-	    teste = "/join SALA\n";
-	    newMessage(teste);
-	    teste = "OLA\n";
-	    newMessage(teste);
-	    startMessageReader();
+	    // lê linha (resposta) do servidor
+	    String msgServer = inFromServer.readLine();
+	    // enquanto a msg não for nula
+	    // isto é, enquanto o servidor não fechar a conexão
+	    while (msgServer != null) {
+
+		// processa a msg vinda do servidor
+		// e imprime no formato respetivo dependendo do tipo de msg
+		printMessage(processMsg(msgServer));
+
+		msgServer = inFromServer.readLine();
 	    
-	   
-	}catch (IOException e) {
+	    }
+
+	    clientSocket.close();   
+	    
+	} catch (IOException e) {
+
+	    // se o servidor estiver offline não faz nada e falha
 	    System.err.println(e);
+	    return;
+	    
 	}
+	
     }
 
-    public void startMessageReader() throws IOException {
-	Thread t = new Thread() {
-		@Override
-		public void run() {
-		     readServerMessage();
-		}
-	    };
-	t.start();
+    // mensagem que coloca no formato amigável
+    public final String processMsg(String message) {
+	
+	if (message.startsWith("MESSAGE")) {
+
+	    String content = message.substring(message.indexOf(" ") + 1);
+	    String sender = content.substring(0, content.indexOf(" "));
+	    String msg = content.substring(content.indexOf(" ") + 1);
+
+	    message = sender + ": " + msg;
+	    
+	} else if (message.startsWith("NEWNICK")) {
+
+	    String content = message.substring(message.indexOf(" ") + 1);
+	    String oldName = content.substring(0, content.indexOf(" "));
+	    String newName = content.substring(content.indexOf(" ") + 1);
+
+	    message = oldName + " mudou de nome para " + newName;
+	    
+	} else if (message.startsWith("JOINED")) {
+
+	    String name = message.substring(message.indexOf(" ") + 1);
+	    message = name + " entrou na sala!\n";
+	    
+	} else if (message.startsWith("LEFT")) {
+
+	    String name = message.substring(message.indexOf(" ") + 1);
+	    message = name + " saiu da sala!\n";
+	    
+	} else if (message.equals("OK") || message.equals("ERROR"))
+	    message = "";
+
+	return message;
+	
     }
-
-     private void readServerMessage() {
-        try {
-            String response;
-	    System.out.println("1");
-            response = bufferedIn.readLine();
-	    System.out.println(response);
-	    printMessage(response);
-	}
-	catch (Exception ex) {
-            ex.printStackTrace();
-            try {
-                s.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-	}
-     }
-
-
 
 
     // Instancia o ChatClient e arranca-o invocando o seu método run()
