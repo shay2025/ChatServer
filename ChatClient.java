@@ -86,6 +86,7 @@ public class ChatClient {
     // Método principal do objecto
     public void run() throws IOException {
 
+	// se conexão estabelecida
 	try {
 
 	    // cria stream de entrada associada à socket
