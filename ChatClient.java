@@ -133,22 +133,24 @@ public class ChatClient {
 
 	    String content = message.substring(message.indexOf(" ") + 1);
 	    String oldName = content.substring(0, content.indexOf(" "));
-	    String newName = content.substring(content.indexOf(" ") + 1);
+	    String newName = content.substring(content.indexOf(" ") + 1, content.length() - 2);
 
-	    message = oldName + " mudou de nome para " + newName;
+	    message = "(" + oldName + " mudou de nome para " + newName + ")\n";
 	    
 	} else if (message.startsWith("JOINED")) {
 
 	    String name = message.substring(message.indexOf(" ") + 1);
-	    message = name + " entrou na sala!\n";
+	    message = "(" + name + " entrou na sala)\n";
 	    
 	} else if (message.startsWith("LEFT")) {
 
 	    String name = message.substring(message.indexOf(" ") + 1);
-	    message = name + " saiu da sala!\n";
+	    message = "(" + name + " saiu da sala)\n";
 	    
-	} else if (message.equals("OK") || message.equals("ERROR"))
-	    message = "";
+	} else if (message.equals("OK"))
+	    message = "(Ação efetuada com sucesso)\n";
+	else if (message.equals("ERROR"))
+	    message = "(Ação efetuada com insucesso)\n";
 
 	return message;
 	
