@@ -1,7 +1,5 @@
 import java.io.*;
 import java.nio.*;
-import java.nio.channels.*;
-import java.nio.charset.*;
 import java.net.*;
 import java.util.*;
 import java.awt.*;
@@ -18,14 +16,12 @@ public class ChatClient {
 
     // Se for necessário adicionar variáveis ao objecto ChatClient, devem
     // ser colocadas aqui
-    //SocketChannel clientSocket;
-    SocketChannel clientSocket;
-    static private final Charset charset = Charset.forName("UTF8");
-    static private final CharsetEncoder encoder = charset.newEncoder();
+    Socket clientSocket;
     DataOutputStream outToServer;
     String server;
     int port;
     BufferedReader inFromServer;
+    LinkedList<String> commands;
     
     // Método a usar para acrescentar uma string à caixa de texto
     // * NÃO MODIFICAR *
@@ -72,14 +68,8 @@ public class ChatClient {
 	this.server = server;
 	this.port = port;
 	// cria socket do cliente e estabelece conexão com servidor
-	//this.clientSocket = new Socket(server,port);
-	try {
-	    clientSocket = SocketChannel.open();
-	    clientSocket.configureBlocking(true);
-	    clientSocket.connect(new InetSocketAddress(server,port));
-	    } catch (IOException ie){ /*fail*/  } 
-	// cria stream de saida associada à socket
-	this.outToServer = new DataOutputStream(clientSocket.socket().getOutputStream());
+	this.clientSocket = new Socket(server, port);
+	this.commands = new LinkedList<String>(Arrays.asList("/nick", "/join", "/bye", "/leave", "/priv"));
 
     }
 
@@ -87,13 +77,23 @@ public class ChatClient {
     // Método invocado sempre que o utilizador insere uma mensagem
     // na caixa de entrada
     public void newMessage(String message) throws IOException {
-	// envia linha (pedido) ao servidor
+	// cria stream de saida associada à socket
+	outToServer = new DataOutputStream(clientSocket.getOutputStream());
+
+	String firstWord;
+	if (message.contains(" "))
+	    firstWord = message.substring(0, message.indexOf(" "));
+	else
+	    firstWord = message.substring(0, message.length());
+
+	// caso do escape
+	if (firstWord.charAt(0) == '/' && !commands.contains(firstWord))
+	    message = "/" + message;
+	
 	// '\n' é o terminador de mensagem
-	message = message + "\n";
-	ByteBuffer bufferUser = charset.encode(CharBuffer.wrap(message));
-	String msg = bufferUser.toString();
-	//System.out.println(msg);
-	outToServer.writeBytes(msg); //-----> enviar para o servidor (ainda nao esta a dar)
+	message += '\n';
+	// envia linha (pedido) ao servidor
+	outToServer.write(message.getBytes());
     }
 
     
@@ -104,7 +104,7 @@ public class ChatClient {
 	try {
 
 	    // cria stream de entrada associada à socket
-	    inFromServer = new BufferedReader(new InputStreamReader(clientSocket.socket().getInputStream(),"UTF-8"));
+	    inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream(), "UTF-8"));
 	
 	    // lê linha (resposta) do servidor
 	    String msgServer = inFromServer.readLine();
@@ -120,6 +120,7 @@ public class ChatClient {
 	    
 	    }
 
+	    outToServer.close();
 	    clientSocket.close();   
 	    
 	} catch (IOException e) {
@@ -147,7 +148,7 @@ public class ChatClient {
 
 	    String content = message.substring(message.indexOf(" ") + 1);
 	    String oldName = content.substring(0, content.indexOf(" "));
-	    String newName = content.substring(content.indexOf(" ") + 1, content.length() - 2);
+	    String newName = content.substring(content.indexOf(" ") + 1, content.length());
 
 	    message = "(" + oldName + " mudou de nome para " + newName + ")\n";
 	    
@@ -160,6 +161,14 @@ public class ChatClient {
 
 	    String name = message.substring(message.indexOf(" ") + 1);
 	    message = "(" + name + " saiu da sala)\n";
+	    
+	} else if (message.startsWith("PRIVATE")) {
+
+	    String content = message.substring(message.indexOf(" ") + 1);
+	    String name = content.substring(0, content.indexOf(" "));
+	    String msg = content.substring(content.indexOf(" ") + 1);
+
+	    message = "(privado)" + name + ": " + msg + "\n"; 
 	    
 	} else if (message.equals("OK"))
 	    message = "(Ação efetuada com sucesso)\n";
