@@ -195,7 +195,7 @@ public class ChatServer {
 		    bufferUser.clear();
 		    MSG = "MESSAGE " + user.name + " " + command;
 		    // envia msg a todos os utilizadores
-		    sendGroup(MSG, user.chatGroup, key, selector);
+		    sendAll(MSG, user.chatGroup, key, selector);
 				    
 		}
 				
@@ -409,6 +409,27 @@ public class ChatServer {
 	    ClientInfo info = (ClientInfo)k.attachment();
 	    
 	    if(k.isValid() && k.channel() instanceof SocketChannel && k != key) {
+		// se o chatGroup do cliente atual corresponder à do que emitiu a msg
+		// e o cliente atual estiver dentro de um chatGroup
+		if((info.chatGroup).equals(chatGroup) && (info.state).equals("inside")){
+		    SocketChannel sch = (SocketChannel)k.channel();
+		    sch.write(msgBuf);
+		    msgBuf.clear();
+		}
+		
+	    }
+	    
+	}
+    }
+
+    public static void sendAll(String message, String chatGroup, SelectionKey key, Selector selector) throws Exception {
+	ByteBuffer msgBuf = ByteBuffer.wrap(message.getBytes());
+	
+	for(SelectionKey k : selector.keys()) {
+	    // vai buscar a informação do cliente associado à chave k
+	    ClientInfo info = (ClientInfo)k.attachment();
+	    
+	    if(k.isValid() && k.channel() instanceof SocketChannel) {
 		// se o chatGroup do cliente atual corresponder à do que emitiu a msg
 		// e o cliente atual estiver dentro de um chatGroup
 		if((info.chatGroup).equals(chatGroup) && (info.state).equals("inside")){
