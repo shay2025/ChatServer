@@ -110,9 +110,11 @@ O servidor não deve interpretar o comando ao fazer <CTRL-D>, apenas bufferizar 
 Para testar o envio de múltiplas mensagens num único pacote pode criar um ficheiro com as linhas
   
 /nick bomrapaz
+
 /join sala
+
 Bom dia!
 
-e fazer *ncat localhost 8000 < ficheiro*. O servidor deve interpretar o que recebe como dois comandos e uma mensagem de texto.
+  e fazer *ncat localhost 8000 < ficheiro*. O servidor deve interpretar o que recebe como dois comandos e uma mensagem de texto.
 
 - Por exemplo, se o utilizador joe escrever /notacommand, que não é nenhum dos comandos do protocolo, o cliente deve enviar ao servidor a mensagem //notacommand. O servidor detecta o mecanismo de escape, remove a ‘/’ extra e envia aos clientes MESSAGE joe /notacommand. Se o utilizador escrever //comment, o cliente envia ao servidor ///comment e o servidor envia aos clientes MESSAGE joe //comment.
