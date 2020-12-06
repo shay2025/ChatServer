@@ -1,5 +1,7 @@
 import java.io.*;
 import java.nio.*;
+import java.nio.channels.*;
+import java.nio.charset.*;
 import java.net.*;
 import java.util.*;
 import java.awt.*;
@@ -16,7 +18,10 @@ public class ChatClient {
 
     // Se for necessário adicionar variáveis ao objecto ChatClient, devem
     // ser colocadas aqui
-    Socket clientSocket;
+    //SocketChannel clientSocket;
+    SocketChannel clientSocket;
+    static private final Charset charset = Charset.forName("UTF8");
+    static private final CharsetEncoder encoder = charset.newEncoder();
     DataOutputStream outToServer;
     String server;
     int port;
@@ -67,9 +72,14 @@ public class ChatClient {
 	this.server = server;
 	this.port = port;
 	// cria socket do cliente e estabelece conexão com servidor
-	this.clientSocket = new Socket(server, port);
+	//this.clientSocket = new Socket(server,port);
+	try {
+	    clientSocket = SocketChannel.open();
+	    clientSocket.configureBlocking(true);
+	    clientSocket.connect(new InetSocketAddress(server,port));
+	    } catch (IOException ie){ /*fail*/  } 
 	// cria stream de saida associada à socket
-	this.outToServer = new DataOutputStream(clientSocket.getOutputStream());
+	this.outToServer = new DataOutputStream(clientSocket.socket().getOutputStream());
 
     }
 
@@ -79,7 +89,11 @@ public class ChatClient {
     public void newMessage(String message) throws IOException {
 	// envia linha (pedido) ao servidor
 	// '\n' é o terminador de mensagem
-	outToServer.writeBytes(message + '\n');
+	message = message + "\n";
+	ByteBuffer bufferUser = charset.encode(CharBuffer.wrap(message));
+	String msg = bufferUser.toString();
+	//System.out.println(msg);
+	outToServer.writeBytes(msg); //-----> enviar para o servidor (ainda nao esta a dar)
     }
 
     
@@ -90,7 +104,7 @@ public class ChatClient {
 	try {
 
 	    // cria stream de entrada associada à socket
-	    inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+	    inFromServer = new BufferedReader(new InputStreamReader(clientSocket.socket().getInputStream(),"UTF-8"));
 	
 	    // lê linha (resposta) do servidor
 	    String msgServer = inFromServer.readLine();
@@ -127,7 +141,7 @@ public class ChatClient {
 	    String sender = content.substring(0, content.indexOf(" "));
 	    String msg = content.substring(content.indexOf(" ") + 1);
 
-	    message = sender + ": " + msg;
+	    message = sender + ": " + msg + "\n";
 	    
 	} else if (message.startsWith("NEWNICK")) {
 
