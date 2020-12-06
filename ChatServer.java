@@ -28,7 +28,10 @@ class ClientInfo {
 public class ChatServer {
 
     // lista que contém o nome dos clientes da sala de chat
-    static List<String> list = new ArrayList<String>(); 
+    static List<String> list = new ArrayList<String>();
+    // lista que contém os comandos permitidos
+    static LinkedList<String> commands =
+	new LinkedList<String>(Arrays.asList("/nick", "/join", "/bye", "/leave", "/priv"));
     // descodificador para texto que chegue -- assumir UTF-8
     static private final Charset charset = Charset.forName("UTF8");
     static private final CharsetDecoder decoder = charset.newDecoder();
@@ -180,6 +183,9 @@ public class ChatServer {
 	    // ou seja, é uma mensagem
 	    if (!isComand(command, key, selector, sc)){
 
+		if (command.charAt(0) == '/')
+		    command = command.substring(1, command.length());
+
 		String MSG;
 				
 		// se o cliente ainda não tiver sido inicializado
@@ -237,6 +243,7 @@ public class ChatServer {
 		    if((info.state).equals("inside")){
 			
 			String antigo = info.name;
+			list.remove(antigo); // deixa disponível o nome antigo caso queiram escolher esse nome
 			info.name = name;
 			String msg1 = "NEWNICK " + antigo + " " + name + "\n";
 			String chatGroup = info.chatGroup;
@@ -274,15 +281,20 @@ public class ChatServer {
 	    String msg;
 	    
 	    if((info.state).equals("inside")) {
+
+		// notifica o cliente que a ação foi feita sem problemas
+		msg = "OK\n";
+		send(msg, key, selector);
+
+		// notifica todos os utilizadores de que o cliente saiu da sala
+		msg = "LEFT " + info.name + "\n";
+		sendGroup(msg, info.chatGroup, key, selector);
 		
-		    msg = "LEFT " + info.name + "\n";
-		    // notifica todos os utilizadores de que o cliente saiu da sala
-		    sendGroup(msg, info.chatGroup, key, selector);
-		    // muda a sala do utilizador para a que ele indicou agora
-		    info.chatGroup = sala;
-		    msg = "OK\n";
-		    // notifica o cliente que a ação foi feita sem problemas
-		    send(msg, key, selector);
+		// muda a sala do utilizador para a que ele indicou agora
+		info.chatGroup = sala;
+		// notifica os utilizadores da sala em que entrou agora da sua chegada
+		msg = "JOINED " + info.name + "\n";
+		sendGroup(msg, info.chatGroup, key, selector);
 		    
 	    } else if((info.state).equals("outside")) {
 
@@ -424,11 +436,11 @@ public class ChatServer {
 
     public static void sendAll(String message, String chatGroup, SelectionKey key, Selector selector) throws Exception {
 	ByteBuffer msgBuf = ByteBuffer.wrap(message.getBytes());
-	
+
 	for(SelectionKey k : selector.keys()) {
 	    // vai buscar a informação do cliente associado à chave k
 	    ClientInfo info = (ClientInfo)k.attachment();
-	    
+
 	    if(k.isValid() && k.channel() instanceof SocketChannel) {
 		// se o chatGroup do cliente atual corresponder à do que emitiu a msg
 		// e o cliente atual estiver dentro de um chatGroup
@@ -437,9 +449,9 @@ public class ChatServer {
 		    sch.write(msgBuf);
 		    msgBuf.clear();
 		}
-		
+
 	    }
-	    
+
 	}
     }
 
