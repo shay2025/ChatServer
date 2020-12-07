@@ -321,8 +321,8 @@ public class ChatServer {
 	
         if(message.startsWith("/leave")){ // sair da sala
 	    
-	    String msg = "BYE\n";
-	    send(msg, key, selector);
+	    String msg;
+	    
 	    
 	    if((info.state).equals("inside")){ // se o cliente estiver dentro da sala
 
@@ -331,6 +331,8 @@ public class ChatServer {
 		sendGroup(msg,info.chatGroup,key,selector);
 		// atualiza o estado do cliente
 		info.state = "outside";
+		msg = "BYE\n";
+		send(msg, key, selector);
 		
 	    } else { // senão estiver dentro de um sala dá erro
 		
@@ -366,15 +368,20 @@ public class ChatServer {
 
 	if(message.startsWith("/priv")){ //este ainda nao esta a funcionar
 
+	    int flag = 0;
 	    String arg = message.substring(message.indexOf(" ") + 1); // argumentos do comando /priv
+	    String msg;
 	    String name = arg.substring(0, arg.indexOf(" "));
+	    if(!list.contains(name)){
+		msg = "ERROR\n";
+		send(msg, key, selector);
+		return true;
+	    }
 	    String contMsg = arg.substring(arg.indexOf(" ") + 1, arg.length() - 1);
-	    String msg = "PRIVATE " + info.name + " " + contMsg + "\n";
+	    msg = "PRIVATE " + info.name + " " + contMsg + "\n";
 	    ByteBuffer msgBuf = ByteBuffer.wrap(msg.getBytes());
 		
 	    for(SelectionKey k : selector.keys()) {
-		if (!list.contains(name)) break;
-		    
 		// vai buscar a informação do cliente associado à chave k
 		ClientInfo info2 = (ClientInfo)k.attachment();
 
@@ -386,10 +393,14 @@ public class ChatServer {
 		    SocketChannel sch = (SocketChannel)k.channel();
 		    sch.write(msgBuf);
 		    msgBuf.clear();
+		    flag = 1;
 		}
 		
 	    }
-	    
+	    if(flag == 0){
+		msg = "ERROR\n";
+		send(msg, key, selector);
+	    }
 	    return true;
 	    
 	}

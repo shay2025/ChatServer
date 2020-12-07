@@ -174,7 +174,8 @@ public class ChatClient {
 	    message = "(Ação efetuada com sucesso)\n";
 	else if (message.equals("ERROR"))
 	    message = "(Ação efetuada com insucesso)\n";
-
+	else
+	    message = message + "\n";
 	return message;
 	
     }
