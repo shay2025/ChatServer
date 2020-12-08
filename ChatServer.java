@@ -98,11 +98,20 @@ public class ChatServer {
 			    // se o input for diferente de um <ENTER>
 			    // a conexão está morta e portanto é removida do selector e fechada
 			    if (ok == -1) {
-				
+
+				ClientInfo user = (ClientInfo)key.attachment();
 				key.cancel();
 
 				Socket s = null;
 				try {
+
+				    // caso o user tenha fechado a conexão sem ter usado um comando
+				    if ((user.state).equals("inside")) {
+					String msg = "LEFT " + user.name + "\n";
+					sendGroup(msg, user.chatGroup, key, selector);
+					list.remove(user.name);
+				    }
+				    
 				    s = sc.socket();
 				    System.out.println("Closing connection to " + s);
 				    s.close();
@@ -331,7 +340,7 @@ public class ChatServer {
 		sendGroup(msg,info.chatGroup,key,selector);
 		// atualiza o estado do cliente
 		info.state = "outside";
-		msg = "BYE\n";
+		msg = "OK\n";
 		send(msg, key, selector);
 		
 	    } else { // senão estiver dentro de um sala dá erro
