@@ -1,6 +1,6 @@
 # ChatServer
 ## Introdução
-O trabalho consiste no desenvolvimento em Java de um servidor de chat e de um cliente simples para comunicar com ele. O servidor deve basear-se no modelo multiplex, aconselhando-se usar como ponto de partida o programa desenvolvido na ficha de exercícios nº 5 das aulas práticas. Quanto ao cliente, deve partir deste esqueleto, que implementa uma interface gráfica simples, e completá-lo com a implementação do lado cliente do protocolo. O cliente deve usar duas threads, de modo a poder receber mensagens do servidor enquanto espera que o utilizador escreva a próxima mensagem ou comando (caso contrário bloquearia na leitura da socket, tornando a interface inoperacional).
+O trabalho consiste no desenvolvimento em Java de um servidor de chat e de um cliente simples para comunicar com ele. O servidor deve basear-se no modelo multiplex. Quanto ao cliente que implementa uma interface gráfica simples e o lado cliente do protocolo. O cliente deve usar duas threads, de modo a poder receber mensagens do servidor enquanto espera que o utilizador escreva a próxima mensagem ou comando (caso contrário bloquearia na leitura da socket, tornando a interface inoperacional).
 
 
 ## Linha de comando
